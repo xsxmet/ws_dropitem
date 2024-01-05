@@ -74,9 +74,10 @@ RegisterNetEvent("ws_dropitem:takeItem", function(groundId, item, count)
                     ItemExists = true
 
                     if item.type == "weapon" then 
-                        GiveGroundItem(xPlayer, item, groundItem.count)
-                        table.remove(Ground[groundId].items, i)
-                        TriggerClientEvent("ws_dropitem:updateGround", -1, Ground)
+                        GiveGroundItem(xPlayer, item, groundItem.count, function()
+                            table.remove(Ground[groundId].items, i)
+                            TriggerClientEvent("ws_dropitem:updateGround", -1, Ground)
+                        end)
                     else
                         if count > groundItem.count then
                             TriggerClientEvent("ws_dropitem:Notify", xPlayer.source, ("Du kannst nicht mehr als %sx aufheben"):format(groundItem.count))
@@ -84,13 +85,15 @@ RegisterNetEvent("ws_dropitem:takeItem", function(groundId, item, count)
                         end
 
                         if count == groundItem.count then
-                            table.remove(Ground[groundId].items, i)
-                            TriggerClientEvent("ws_dropitem:updateGround", -1, Ground)
-                            GiveGroundItem(xPlayer, item, count)
+                            GiveGroundItem(xPlayer, item, count, function()
+                                table.remove(Ground[groundId].items, i)
+                                TriggerClientEvent("ws_dropitem:updateGround", -1, Ground)
+                            end)
                         else
-                            groundItem.count = groundItem.count - count
-                            TriggerClientEvent("ws_dropitem:updateGround", -1, Ground)
-                            GiveGroundItem(xPlayer, item, count)
+                            GiveGroundItem(xPlayer, item, count, function()
+                                groundItem.count = groundItem.count - count
+                                TriggerClientEvent("ws_dropitem:updateGround", -1, Ground)
+                            end)
                         end
                     end
                 end
@@ -103,16 +106,27 @@ RegisterNetEvent("ws_dropitem:takeItem", function(groundId, item, count)
     end
 end)
 
-function GiveGroundItem(xPlayer, item, count) 
+function GiveGroundItem(xPlayer, item, count, fcb) 
     if item.type == "item" then
-        xPlayer.addInventoryItem(item.name, count)
-        TriggerClientEvent("ws_dropitem:Notify", xPlayer.source, ("Du hast %sx %s aufgehoben"):format(count, item.label))
+        if xPlayer.canCarryItem(item.name, count) then 
+            xPlayer.addInventoryItem(item.name, count)
+            TriggerClientEvent("ws_dropitem:Notify", xPlayer.source, ("Du hast %sx %s aufgehoben"):format(count, item.label))
+            fcb(true)
+        else
+            TriggerClientEvent("ws_dropitem:Notify", xPlayer.source, "Dieser Gegenstand Passt nicht in dein inventar")
+        end
     elseif item.type == "weapon" then
-        xPlayer.addWeapon(item.name, count)
-        TriggerClientEvent("ws_dropitem:Notify", xPlayer.source, ("Du hast %s mit %s Schuss aufgehoben"):format(item.label, count))
+        if not xPlayer.hasWeapon(item.name) then 
+            xPlayer.addWeapon(item.name, count)
+            TriggerClientEvent("ws_dropitem:Notify", xPlayer.source, ("Du hast %s mit %s Schuss aufgehoben"):format(item.label, count))
+            fcb(true)
+        else
+            TriggerClientEvent("ws_dropitem:Notify", xPlayer.source, "Du besitzt diese Waffe bereits")
+        end
     elseif item.type == "account" then
         xPlayer.addAccountMoney(item.name, count)
         TriggerClientEvent("ws_dropitem:Notify", xPlayer.source, ("Du hast %s$ %s aufgehoben"):format(count, item.label))
+        fcb(true)
     end
 end
 
